@@ -6,8 +6,16 @@
     - mysql
     - backend
     - frontend
+    zone: "vensa.online"
 
   tasks:
+  - name: install boto3 botocore to ansible
+    ansible.builtin.pip:
+      name:
+      - boto3
+      - botocore
+      executable: pip3.9
+
   - name: create ec2 instances
     amazon.aws.ec2_instance:
       name: "{{ item }}"
@@ -17,6 +25,36 @@
       image_id: "ami-09c813fb71547fc4f"
     loop: "{{ instances }}"
     register: ec2_instances
+
+  - name: print ec2 info
+    ansible.builtin.debug:
+      msg: "{{ ec2_instances }}"
+
+  - name: create private r53 records
+    amazon.aws.route53:
+      state: present
+      zone: "{{ zone }}"
+      record: "{{ item.item }}.{{ zone }}"
+      type: A
+      ttl: 1
+      value: "{{ item.instance[0].private_ip_address }}"
+      wait: true
+      overwrite: true
+    loop: "{{ item.results }}"
+
+  - name: create public r53 record  for  frontend
+    amazon.aws.route53:
+      state: present
+      zone: "{{ zone }}"
+      record: "{{ zone }}"
+      type: A
+      ttl: 1
+      value: "{{ item.instance[0].public_ip_address }}"
+      wait: true
+      overwrite: true
+    loop: "{{ item.results }}"
+    when: item.item == "frontend"
+
 
   
     
